@@ -1,0 +1,29 @@
+# MT25048 - PA02 Network I/O Analysis
+
+# Binaries
+a1_server
+a1_client
+a2_server
+a2_client
+a3_server
+a3_client
+*.o
+*.out
+
+# Archives (keep source zip out of repo temporarily during development)
+MT25048_PA02.zip
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+
+# Perf outputs
+perf.data
+perf.data.old
+
+# Editor/IDE
+.vscode/
+.idea/
+*~
+*.swp

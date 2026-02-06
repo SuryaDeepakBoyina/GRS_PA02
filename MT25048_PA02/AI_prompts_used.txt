@@ -1,0 +1,314 @@
+AI Prompts Used for PA02 Network I/O Analysis
+Roll Number: MT25048
+================================================================================
+
+This file documents all AI-generated components and the prompts used.
+
+================================================================================
+OVERVIEW
+================================================================================
+
+AI Tool Used: Google Gemini / ChatGPT / Claude (Antigravity Agent)
+Date: 2026-02-05
+Purpose: Code generation, analysis explanations, and automation scripts
+
+All AI-generated code was reviewed line-by-line and validated against:
+- PA02 specification requirements
+- Linux socket programming manuals (man pages)
+- Kernel documentation for MSG_ZEROCOPY
+- Performance profiling best practices
+
+================================================================================
+COMPONENT 1: Common Utilities (common.h, common.c)
+================================================================================
+
+Prompt:
+"Create a common.h and common.c file for a network I/O project with the following:
+1. A message_t structure containing 8 dynamically allocated (malloc'd) string fields
+2. Functions to allocate and free messages with heap-allocated fields
+3. Message serialization/deserialization functions
+4. Timing utilities using clock_gettime for microsecond precision
+5. Statistics tracking for throughput and latency measurement
+6. Command-line argument parsing helpers
+Follow Linux C coding standards and include detailed comments."
+
+AI Usage:
+- Generated initial structure definitions
+- Implemented allocation/deallocation logic
+- Created timing and statistics helpers
+- All code reviewed and tested manually
+
+Validation:
+- Verified each field is malloc'd separately (requirement for two-copy behavior)
+- Tested serialization round-trip correctness
+- Validated timing precision using clock_gettime CLOCK_MONOTONIC
+
+================================================================================
+COMPONENT 2: Part A1 - Two-Copy Implementation
+================================================================================
+
+Prompt:
+"Implement a TCP client-server application in C with:
+1. Server: Uses send() for transmission, thread-per-client model with pthreads
+2. Client: Uses recv() for reception, spawns multiple threads
+3. Message structure with 8 heap-allocated string fields (use common.h)
+4. Command-line parameters: port, msgsize, duration, threads
+5. Detailed comments explaining where the two copies occur:
+   - Copy 1: User buffer to kernel socket buffer
+   - Copy 2: Kernel buffer to NIC hardware buffer
+Include proper error handling and signal handling for clean shutdown."
+
+AI Usage:
+- Generated socket setup code (socket, bind, listen, accept)
+- Implemented pthread-based threading model
+- Created send/recv loops with statistics collection
+- Added explanatory comments about two-copy behavior
+
+Validation:
+- Compiled and tested with various message sizes
+- Verified thread-per-client behavior
+- Confirmed send() follows two-copy code path (no MSG_ZEROCOPY flag)
+
+================================================================================
+COMPONENT 3: Part A2 - One-Copy Implementation
+================================================================================
+
+Prompt:
+"Modify the TCP server/client to use sendmsg() with scatter-gather I/O for one-copy optimization:
+1. Use posix_memalign() to create page-aligned buffers (PAGE_SIZE = 4096)
+2. Use iovec structures for scatter-gather
+3. Replace send() with sendmsg()
+4. Include detailed comments explaining which copy is eliminated:
+   - Eliminated: User-to-kernel copy (kernel references user buffer directly)
+   - Remaining: Kernel-to-NIC copy
+Explain how aligned buffers enable DMA-friendly operation."
+
+AI Usage:
+- Generated posix_memalign() allocation code
+- Implemented iovec structure preparation
+- Created sendmsg()/recvmsg() loops
+- Added comments on one-copy optimization mechanism
+
+Validation:
+- Verified buffer alignment (checked memory addresses are page-aligned)
+- Tested sendmsg() with iovec structures
+- Confirmed no MSG_ZEROCOPY flag (distinguishes from Part A3)
+
+================================================================================
+COMPONENT 4: Part A3 - Zero-Copy Implementation
+================================================================================
+
+Prompt:
+"Implement zero-copy TCP server using MSG_ZEROCOPY:
+1. Use sendmsg() with MSG_ZEROCOPY flag
+2. Implement completion notification handling using recvmsg() on MSG_ERRQUEUE
+3. Parse sock_extended_err structures for zerocopy completion status
+4. Handle kernel version compatibility (Linux 4.14+ required)
+5. Include page pinning explanation and error handling
+6. Add ASCII diagram showing zero-copy data path:
+   User Buffer -> (page pinning) -> NIC DMA
+Include detailed comments on limitations:
+- Only effective for large messages (>10KB typically)
+- Page pinning overhead
+- Completion notification latency"
+
+AI Usage:
+- Generated MSG_ZEROCOPY flag handling
+- Implemented completion notification parsing
+- Created error queue monitoring logic
+- Added kernel compatibility checks
+- Generated ASCII diagram
+
+Validation:
+- Tested on Linux kernel with MSG_ZEROCOPY support
+- Verified completion notifications are received
+- Tested fallback behavior when zerocopy unavailable
+- Confirmed page pinning behavior through kernel logs
+
+================================================================================
+COMPONENT 5: Experiment Automation (run_experiments.sh)
+================================================================================
+
+Prompt:
+"Create a bash script to automate PA02 experiments:
+1. Compile all binaries (make clean && make)
+2. Loop over message sizes: 64, 256, 1024, 8192 bytes
+3. Loop over thread counts: 1, 2, 4, 8
+4. For each combination:
+   - Start server with perf stat wrapper
+   - Run client for fixed duration (5 seconds)
+   - Collect perf metrics: cycles, cache-misses, L1-dcache-load-misses, LLC-load-misses, context-switches
+   - Parse application output for throughput and latency
+   - Write CSV row: mode,msg_size,threads,throughput_gbps,latency_us,cycles,cache_misses,l1_misses,llc_misses,context_switches,timestamp
+5. Generate combined CSV file
+Include error handling and progress messages."
+
+AI Usage:
+- Generated bash script structure
+- Implemented nested loops for parameter combinations
+- Created perf stat command wrappers
+- Developed CSV parsing and output logic
+
+Validation:
+- Tested script execution with small subset of experiments
+- Verified CSV format matches specification
+- Confirmed perf metrics are correctly extracted
+
+================================================================================
+COMPONENT 6: Perf Parser (parse_perf.py)
+================================================================================
+
+Prompt:
+"Create a Python script to parse perf stat output files:
+1. Read perf output text files from raw_csvs/ directory
+2. Extract metrics using regex patterns for:
+   - cycles
+   - cache-misses
+   - L1-dcache-load-misses
+   - LLC-load-misses
+   - context-switches
+3. Handle comma-separated numbers
+4. Print parsed results
+This script supplements the bash script's inline parsing."
+
+AI Usage:
+- Generated regex patterns for metric extraction
+- Implemented file parsing logic
+- Created summary output
+
+Validation:
+- Tested with sample perf stat output
+- Verified regex patterns match actual perf output format
+
+================================================================================
+COMPONENT 7: Plot Generator (MT25048_Part_D_plot_results.py)
+================================================================================
+
+Prompt:
+"Create a Python plotting script using matplotlib with HARDCODED data arrays (critical requirement):
+1. Define arrays for message sizes [64, 256, 1024, 8192] and thread counts [1, 2, 4, 8]
+2. Create placeholder arrays for:
+   - Throughput (Gbps) by message size for each mode
+   - Latency (µs) by thread count for each mode
+   - Cache misses (total, L1, LLC) by message size
+   - CPU cycles for cycles-per-byte calculation
+3. Generate 4 plots:
+   - Plot 1: Throughput vs Message Size (log scale x-axis)
+   - Plot 2: Latency vs Thread Count
+   - Plot 3: Cache Misses vs Message Size (3 subplots: total, L1, LLC)
+   - Plot 4: CPU Cycles per Byte
+4. Include axis labels, legends, grid, and system config annotation
+5. Export as PDF files with naming: MT25048_Plot_*.pdf
+6. Include clear comments that data MUST be manually copied from CSV after experiments
+This is required by PA02 specification - NO CSV READING ALLOWED in plot script."
+
+AI Usage:
+- Generated matplotlib plotting code
+- Created data array structures
+- Implemented 4 plot functions
+- Added system config annotations
+
+Validation:
+- Tested plot generation with example data
+- Verified PDF output quality
+- Confirmed no CSV reading functionality (critical requirement)
+
+================================================================================
+COMPONENT 8: Analysis Explanations (for Report Part E)
+================================================================================
+
+Prompts used for generating analysis content:
+
+Question 1: "Why does zero-copy not always give the best throughput?"
+Prompt: "Explain why MSG_ZEROCOPY may not outperform one-copy or two-copy for network I/O, considering:
+- Page pinning overhead
+- Completion notification latency
+- Message size thresholds
+- CPU vs memory bottlenecks"
+
+Question 2: "Which cache level shows most reduction in misses?"
+Prompt: "Analyze cache behavior for network I/O with different copy strategies. Explain:
+- L1 cache characteristics (size, latency)
+- LLC characteristics
+- Why one-copy reduces L1 misses more than LLC misses"
+
+Question 3: "How does thread count interact with cache contention?"
+Prompt: "Explain cache contention in multi-threaded network servers:
+- False sharing
+- Cache line bouncing
+- NUMA effects
+- Scalability limits"
+
+Question 4 & 5: "Message size thresholds"
+Prompt: "Explain why certain message sizes create performance crossover points:
+- Cache line size (64 bytes)
+- Page size (4KB)
+- TCP MSS
+- Buffer allocation overhead vs data transfer cost"
+
+Question 6: "Unexpected result explanation"
+Prompt: "Provide framework for explaining unexpected performance results using:
+- OS scheduling behavior
+- Kernel network stack optimizations
+- Hardware-specific effects (TSO, GSO, interrupt coalescing)
+- Measurement artifacts"
+
+AI Usage:
+- Generated initial explanations
+- Provided theoretical background
+- Suggested analysis frameworks
+
+Validation:
+- Cross-referenced with Linux kernel documentation
+- Verified against course lecture materials
+- Checked consistency with measured data
+
+================================================================================
+CODE VALIDATION PROCESS
+================================================================================
+
+All AI-generated code was validated through:
+
+1. Manual Code Review
+   - Read every line of generated code
+   - Verified against assignment requirements
+   - Checked for security issues (buffer overflows, race conditions)
+
+2. Compilation Testing
+   - Compiled with -Wall -Wextra flags
+   - Fixed all warnings
+   - Verified no undefined behavior
+
+3. Functional Testing
+   - Tested each variant individually
+   - Verified correct network communication
+   - Validated statistics calculation
+
+4. Reference Checking
+   - Compared against man pages (send, sendmsg, recv, perf)
+   - Checked kernel documentation for MSG_ZEROCOPY
+   - Verified socket options and flags
+
+5. Performance Validation
+   - Ran experiments and verified expected behavior
+   - Confirmed perf metrics are reasonable
+   - Validated throughput calculations
+
+================================================================================
+DECLARATION
+================================================================================
+
+I, MT25048, declare that:
+
+1. All AI-generated components are documented above with prompts used
+2. All code has been reviewed and understood line-by-line
+3. I can explain the functionality of every component during viva
+4. AI was used as a tool for acceleration, not as a replacement for understanding
+5. All validation was performed manually
+6. References used for validation are documented in the report
+
+This file will be included in the final submission zip as AI_prompts_used.txt.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
