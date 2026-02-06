@@ -1,0 +1,19 @@
+# started on Sat Feb  7 01:03:48 2026
+
+
+ Performance counter stats for './a3_client --host=127.0.0.1 --port=9002 --msgsize=64 --threads=2 --duration=5':
+
+    39,003,211,891      cycles                                                                
+    38,600,330,981      instructions                     #    0.99  insn per cycle            
+           508,167      cache-misses                     #    2.40% of all cache refs         
+        21,149,510      cache-references                                                      
+       517,237,779      L1-dcache-load-misses                                                 
+            19,800      LLC-load-misses                                                       
+            15,336      context-switches                                                      
+
+       5.001093299 seconds time elapsed
+
+       0.273664000 seconds user
+       5.602105000 seconds sys
+
+

@@ -1,0 +1,2 @@
+mode,msg_size,threads,throughput_gbps,latency_us,cycles,cache_misses,l1_misses,llc_misses,context_switches,timestamp
+one_copy,64,4,0.276,8.25,39438779804,2982470,604435799,60839,707886,20260207_010159

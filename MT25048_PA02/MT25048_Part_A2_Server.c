@@ -1,26 +1,23 @@
 /*
- * MT25048_Part_A2_Server.c - One-Copy TCP Server (sendmsg optimization)
+ * MT25048_Part_A2_Server.c - One-Copy TCP Server (recvmsg optimization)
  * Roll Number: MT25048
  *
- * This server implements ONE-COPY socket communication using sendmsg() with
- * scatter-gather I/O via iovec structures and pre-registered (aligned) buffers.
+ * This server RECEIVES data using recvmsg() with scatter-gather I/O via iovec
+ * structures and pre-registered (aligned) buffers.
  *
  * ONE-COPY EXPLANATION:
  * ---------------------
- * Copy Eliminated: User space → Kernel space copy is REDUCED/OPTIMIZED
+ * Copy Eliminated: Kernel → User space copy is REDUCED/OPTIMIZED
  *
  * How it works:
  * 1. Use posix_memalign() to create page-aligned buffers
- * 2. Use sendmsg() with iovec structures for scatter-gather I/O
- * 3. Kernel can reference user buffers directly (zero-copy semantics within
- * kernel) or optimize the copy path with DMA-friendly aligned buffers
+ * 2. Use recvmsg() with iovec structures for scatter-gather I/O
+ * 3. Kernel can place data directly into user buffers (minimizing copies)
  *
- * Remaining copy: Kernel → NIC (this is unavoidable without MSG_ZEROCOPY)
- *
- * The key optimization is that sendmsg() with iovec allows the kernel to:
+ * The key optimization is that recvmsg() with iovec allows the kernel to:
  * - Avoid intermediate buffer copies
  * - Use scatter-gather DMA when hardware supports it
- * - Reference user pages more efficiently
+ * - Place data directly into aligned user pages
  */
 
 #include "common.h"
@@ -41,7 +38,7 @@ typedef struct {
 } client_thread_args_t;
 
 /*
- * client_handler - Thread function using sendmsg() for one-copy transmission
+ * client_handler - Thread function using recvmsg() for one-copy reception
  */
 void *client_handler(void *arg) {
   client_thread_args_t *args = (client_thread_args_t *)arg;
@@ -50,7 +47,7 @@ void *client_handler(void *arg) {
   int duration_sec = args->duration_sec;
   int thread_id = args->thread_id;
 
-  printf("[Thread %d] Client connected (ONE-COPY mode: sendmsg)\n", thread_id);
+  printf("[Thread %d] Client connected (ONE-COPY mode: recvmsg)\n", thread_id);
 
   /* Allocate PAGE-ALIGNED buffer for DMA optimization */
   void *aligned_buffer;
@@ -69,32 +66,10 @@ void *client_handler(void *arg) {
   printf("[Thread %d] Allocated %zu-byte aligned buffer at %p\n", thread_id,
          aligned_size, aligned_buffer);
 
-  /* Create message in aligned buffer */
-  message_t *msg = msg_alloc(msg_size / NUM_FIELDS);
-  if (!msg) {
-    fprintf(stderr, "[Thread %d] Failed to allocate message\n", thread_id);
-    free(aligned_buffer);
-    close(client_fd);
-    free(args);
-    return NULL;
-  }
-
-  /* Serialize into aligned buffer */
-  int serialized_size =
-      msg_serialize(msg, (char *)aligned_buffer, aligned_size);
-  if (serialized_size < 0) {
-    fprintf(stderr, "[Thread %d] Serialization failed\n", thread_id);
-    msg_free(msg);
-    free(aligned_buffer);
-    close(client_fd);
-    free(args);
-    return NULL;
-  }
-
   /* Prepare iovec structure for scatter-gather I/O */
   struct iovec iov[1];
   iov[0].iov_base = aligned_buffer;
-  iov[0].iov_len = serialized_size;
+  iov[0].iov_len = aligned_size;
 
   struct msghdr msghdr;
   memset(&msghdr, 0, sizeof(msghdr));
@@ -107,40 +82,42 @@ void *client_handler(void *arg) {
   double start_time = get_timestamp_sec();
   double end_time = start_time + duration_sec;
 
-  /* Send loop using sendmsg() - ONE-COPY path */
+  /* Receive loop using recvmsg() - ONE-COPY path */
   while (get_timestamp_sec() < end_time && !shutdown_flag) {
-    double send_start = get_timestamp_us();
+    double recv_start = get_timestamp_us();
 
     /*
-     * ONE-COPY SENDMSG:
-     * Kernel can reference aligned_buffer directly or use optimized copy path.
+     * ONE-COPY RECVMSG:
+     * Kernel can place data directly into aligned_buffer.
      * The iovec structure allows scatter-gather DMA, reducing intermediate
      * copies.
      */
-    ssize_t sent = sendmsg(client_fd, &msghdr, 0);
+    ssize_t received = recvmsg(client_fd, &msghdr, 0);
 
-    double send_end = get_timestamp_us();
+    double recv_end = get_timestamp_us();
 
-    if (sent < 0) {
+    if (received < 0) {
       if (errno == EINTR || errno == EAGAIN)
         continue;
-      perror("sendmsg failed");
+      perror("recvmsg failed");
       break;
     }
 
-    if (sent != serialized_size) {
-      fprintf(stderr, "[Thread %d] Partial sendmsg: %zd/%d\n", thread_id, sent,
-              serialized_size);
+    if (received == 0) {
+      printf("[Thread %d] Client closed connection\n", thread_id);
       break;
     }
 
-    stats_update(&stats, serialized_size, send_end - send_start);
+    stats_update(&stats, received, recv_end - recv_start);
+
+    /* Reset iovec for next receive */
+    iov[0].iov_base = aligned_buffer;
+    iov[0].iov_len = aligned_size;
   }
 
   stats_print(&stats, "Server Thread (ONE-COPY)");
   stats_destroy(&stats);
 
-  msg_free(msg);
   free(aligned_buffer);
   close(client_fd);
   free(args);
@@ -161,11 +138,11 @@ int main(int argc, char *argv[]) {
     duration = parse_int_arg(argv[i], "--duration=", duration);
   }
 
-  printf("=== MT25048 Part A2: One-Copy Server (sendmsg) ===\n");
+  printf("=== MT25048 Part A2: One-Copy Server (recvmsg Receiver) ===\n");
   printf("Port: %d\n", port);
   printf("Message Size: %zu bytes\n", msg_size);
   printf("Duration: %d seconds\n", duration);
-  printf("Optimization: Pre-aligned buffers + sendmsg()\n\n");
+  printf("Optimization: Pre-aligned buffers + recvmsg()\n\n");
 
   setup_signal_handlers();
 

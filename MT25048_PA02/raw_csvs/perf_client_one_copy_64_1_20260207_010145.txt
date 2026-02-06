@@ -1,0 +1,19 @@
+# started on Sat Feb  7 01:01:47 2026
+
+
+ Performance counter stats for './a2_client --host=127.0.0.1 --port=9001 --msgsize=64 --threads=1 --duration=5':
+
+    20,381,712,420      cycles                                                                
+    26,883,225,224      instructions                     #    1.32  insn per cycle            
+           226,001      cache-misses                     #    0.11% of all cache refs         
+       208,554,894      cache-references                                                      
+       191,610,559      L1-dcache-load-misses                                                 
+             9,405      LLC-load-misses                                                       
+               277      context-switches                                                      
+
+       5.001022847 seconds time elapsed
+
+       0.196081000 seconds user
+       3.255357000 seconds sys
+
+

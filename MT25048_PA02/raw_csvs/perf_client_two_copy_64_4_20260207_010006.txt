@@ -1,0 +1,19 @@
+# started on Sat Feb  7 01:00:08 2026
+
+
+ Performance counter stats for './a1_client --host=127.0.0.1 --port=9000 --msgsize=64 --threads=4 --duration=5':
+
+    33,001,693,645      cycles                                                                
+    32,842,992,001      instructions                     #    1.00  insn per cycle            
+         3,206,406      cache-misses                     #   17.95% of all cache refs         
+        17,858,444      cache-references                                                      
+       493,340,606      L1-dcache-load-misses                                                 
+            74,978      LLC-load-misses                                                       
+           696,122      context-switches                                                      
+
+       5.002988348 seconds time elapsed
+
+       0.527771000 seconds user
+       8.659989000 seconds sys
+
+

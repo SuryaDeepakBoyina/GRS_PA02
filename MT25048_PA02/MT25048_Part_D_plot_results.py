@@ -22,13 +22,16 @@ import sys
 SYSTEM_CONFIG = """
 System: Linux kernel 5.15+
 CPU: Intel/AMD x64
-RAM: 16GB
-Date: 2026-02-05
+RAM: 8GB
+Date: 2026-02-07
 """
 
 # ============================================================================
-# HARDCODED DATA ARRAYS - MANUALLY UPDATE AFTER EXPERIMENTS
+# HARDCODED EXPERIMENTAL DATA
 # ============================================================================
+# Data extracted from raw_csvs/combined_results.csv (timestamp: 20260207_01xxxx)
+# After client/server role fix: Client SENDS, Server RECEIVES
+# Baseline: threads=4 for throughput/cache plots, msgsize=1024 for latency plots
 
 # Message sizes tested (in bytes)
 MSG_SIZES = [64, 256, 1024, 8192]
@@ -36,45 +39,59 @@ MSG_SIZES = [64, 256, 1024, 8192]
 # Thread counts tested
 THREAD_COUNTS = [1, 2, 4, 8]
 
-# --- Throughput Data (Gbps) ---
-# TODO: After running experiments, copy values from combined_results.csv here
+# Duration used in experiments (from run_experiments.sh)
+DURATION = 5  # seconds
 
-# Throughput for each mode, varying message size (threads=4 as baseline)
-throughput_two_copy_by_msgsize = [0.5, 1.2, 2.3, 3.1]      # Example values - REPLACE
-throughput_one_copy_by_msgsize = [0.7, 1.5, 2.8, 3.8]      # Example values - REPLACE
-throughput_zero_copy_by_msgsize = [0.6, 1.3, 3.5, 5.2]     # Example values - REPLACE
+# ============================================================================
+# THROUGHPUT DATA (Gbps) - threads=4, varying message size
+# Format: [64 bytes, 256 bytes, 1024 bytes, 8192 bytes]
+# ============================================================================
+throughput_two_copy_by_msgsize = [0.34, 1.615, 8.169, 21.402]
+throughput_one_copy_by_msgsize = [0.276, 1.413, 4.897, 38.681]
+throughput_zero_copy_by_msgsize = [0.187, 0.941, 2.443, 30.998]
 
-# --- Latency Data (µs) ---
-# Average latency for each mode, varying thread count (msgsize=1024 as baseline)
-latency_two_copy_by_threads = [45.2, 52.3, 78.5, 125.6]    # Example values - REPLACE
-latency_one_copy_by_threads = [38.1, 45.7, 65.2, 98.3]     # Example values - REPLACE
-latency_zero_copy_by_threads = [42.5, 48.9, 70.1, 110.4]   # Example values - REPLACE
+# ============================================================================
+# LATENCY DATA (µs) - msgsize=1024, varying threads
+# Format: [1 thread, 2 threads, 4 threads, 8 threads]
+# ============================================================================
+latency_two_copy_by_threads = [5.01, 2.26, 3.97, 5.70]
+latency_one_copy_by_threads = [2.92, 3.75, 6.13, 6.40]
+latency_zero_copy_by_threads = [3.88, 5.19, 12.04, 17.10]
 
-# --- Cache Miss Data (count) ---
-# Cache misses for each mode, varying message size (threads=4)
-cache_misses_two_copy = [1200, 3500, 8900, 25000]          # Example values - REPLACE
-cache_misses_one_copy = [1000, 3000, 7500, 20000]          # Example values - REPLACE
-cache_misses_zero_copy = [950, 2800, 7200, 18500]          # Example values - REPLACE
+# ============================================================================
+# CACHE MISS DATA - threads=4, varying message size
+# Format: [64 bytes, 256 bytes, 1024 bytes, 8192 bytes]
+# ============================================================================
 
-# L1 cache misses
-l1_misses_two_copy = [800, 2300, 6000, 18000]              # Example values - REPLACE
-l1_misses_one_copy = [650, 1900, 5000, 14000]              # Example values - REPLACE
-l1_misses_zero_copy = [600, 1800, 4800, 13500]             # Example values - REPLACE
+# cache_misses (perf: cache-misses - misses that went to main memory)
+cache_misses_two_copy = [3206406, 4864440, 6166287, 25286368]
+cache_misses_one_copy = [2982470, 4322291, 16282255, 249654615]
+cache_misses_zero_copy = [4435749, 3546400, 6382138, 25883728]
 
-# LLC misses
-llc_misses_two_copy = [350, 1100, 2800, 8500]              # Example values - REPLACE
-llc_misses_one_copy = [300, 950, 2200, 6500]               # Example values - REPLACE
-llc_misses_zero_copy = [280, 900, 2000, 6000]              # Example values - REPLACE
+# L1 cache misses (perf: L1-dcache-load-misses)
+l1_misses_two_copy = [493340606, 258619045, 270940225, 720812096]
+l1_misses_one_copy = [604435799, 590554636, 663760945, 1208667898]
+l1_misses_zero_copy = [747425854, 764573458, 803294755, 738661137]
 
-# --- CPU Cycles Data ---
-# Total cycles for each mode, varying message size
-cycles_two_copy = [50000, 180000, 650000, 2100000]         # Example values - REPLACE
-cycles_one_copy = [45000, 160000, 580000, 1850000]         # Example values - REPLACE
-cycles_zero_copy = [48000, 170000, 550000, 1650000]        # Example values - REPLACE
+# LLC cache misses (perf: LLC-load-misses)
+llc_misses_two_copy = [74978, 100548, 83445, 181741]
+llc_misses_one_copy = [60839, 75496, 157943, 1213294]
+llc_misses_zero_copy = [28294, 47061, 141573, 593154]
 
-# Total bytes transferred (for cycles per byte calculation)
-# Calculated as: msg_size * messages_sent
-bytes_transferred = [64000, 256000, 1024000, 8192000]      # Example values - REPLACE
+# ============================================================================
+# CPU CYCLES DATA - threads=4, varying message size
+# Format: [64 bytes, 256 bytes, 1024 bytes, 8192 bytes]
+# ============================================================================
+cycles_two_copy = [33001693645, 25372980499, 18010295414, 15586843165]
+cycles_one_copy = [39438779804, 44511469539, 39466498693, 28048004914]
+cycles_zero_copy = [40543575711, 44227911279, 42751881102, 30188950831]
+
+# ============================================================================
+# CALCULATED DATA: Bytes transferred = (throughput_gbps * DURATION * 1e9) / 8
+# ============================================================================
+bytes_two_copy = [(t * DURATION * 1e9) / 8 for t in throughput_two_copy_by_msgsize]
+bytes_one_copy = [(t * DURATION * 1e9) / 8 for t in throughput_one_copy_by_msgsize]
+bytes_zero_copy = [(t * DURATION * 1e9) / 8 for t in throughput_zero_copy_by_msgsize]
 
 # ============================================================================
 # PLOTTING FUNCTIONS
@@ -147,35 +164,35 @@ def plot_cache_misses_vs_msgsize():
     """Plot 3: Cache Misses vs Message Size."""
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
-    # Total cache misses
-    axes[0].plot(MSG_SIZES, cache_misses_two_copy, 'o-', label='Two-Copy', color='#e74c3c')
-    axes[0].plot(MSG_SIZES, cache_misses_one_copy, 's-', label='One-Copy', color='#3498db')
-    axes[0].plot(MSG_SIZES, cache_misses_zero_copy, '^-', label='Zero-Copy', color='#2ecc71')
+    # Plot 1: L1 Data Cache Misses
+    axes[0].plot(MSG_SIZES, [v/1e6 for v in l1_misses_two_copy], 'o-', label='Two-Copy', color='#e74c3c')
+    axes[0].plot(MSG_SIZES, [v/1e6 for v in l1_misses_one_copy], 's-', label='One-Copy', color='#3498db')
+    axes[0].plot(MSG_SIZES, [v/1e6 for v in l1_misses_zero_copy], '^-', label='Zero-Copy', color='#2ecc71')
     axes[0].set_xlabel('Message Size (bytes)')
-    axes[0].set_ylabel('Total Cache Misses')
-    axes[0].set_title('Total Cache Misses')
+    axes[0].set_ylabel('Misses (Millions)')
+    axes[0].set_title('L1 Data Cache Misses')
     axes[0].set_xscale('log', base=2)
     axes[0].grid(True, alpha=0.3)
     axes[0].legend()
     
-    # L1 cache misses
-    axes[1].plot(MSG_SIZES, l1_misses_two_copy, 'o-', label='Two-Copy', color='#e74c3c')
-    axes[1].plot(MSG_SIZES, l1_misses_one_copy, 's-', label='One-Copy', color='#3498db')
-    axes[1].plot(MSG_SIZES, l1_misses_zero_copy, '^-', label='Zero-Copy', color='#2ecc71')
+    # Plot 2: Cache misses to memory (perf cache-misses)
+    axes[1].plot(MSG_SIZES, [v/1e6 for v in cache_misses_two_copy], 'o-', label='Two-Copy', color='#e74c3c')
+    axes[1].plot(MSG_SIZES, [v/1e6 for v in cache_misses_one_copy], 's-', label='One-Copy', color='#3498db')
+    axes[1].plot(MSG_SIZES, [v/1e6 for v in cache_misses_zero_copy], '^-', label='Zero-Copy', color='#2ecc71')
     axes[1].set_xlabel('Message Size (bytes)')
-    axes[1].set_ylabel('L1 Cache Misses')
-    axes[1].set_title('L1 Cache Misses')
+    axes[1].set_ylabel('Misses (Millions)')
+    axes[1].set_title('Cache-to-Memory Misses')
     axes[1].set_xscale('log', base=2)
     axes[1].grid(True, alpha=0.3)
     axes[1].legend()
     
-    # LLC misses
-    axes[2].plot(MSG_SIZES, llc_misses_two_copy, 'o-', label='Two-Copy', color='#e74c3c')
-    axes[2].plot(MSG_SIZES, llc_misses_one_copy, 's-', label='One-Copy', color='#3498db')
-    axes[2].plot(MSG_SIZES, llc_misses_zero_copy, '^-', label='Zero-Copy', color='#2ecc71')
+    # Plot 3: LLC Load Misses
+    axes[2].plot(MSG_SIZES, [v/1e6 for v in llc_misses_two_copy], 'o-', label='Two-Copy', color='#e74c3c')
+    axes[2].plot(MSG_SIZES, [v/1e6 for v in llc_misses_one_copy], 's-', label='One-Copy', color='#3498db')
+    axes[2].plot(MSG_SIZES, [v/1e6 for v in llc_misses_zero_copy], '^-', label='Zero-Copy', color='#2ecc71')
     axes[2].set_xlabel('Message Size (bytes)')
-    axes[2].set_ylabel('LLC Misses')
-    axes[2].set_title('LLC Misses')
+    axes[2].set_ylabel('Misses (Millions)')
+    axes[2].set_title('LLC Load Misses')
     axes[2].set_xscale('log', base=2)
     axes[2].grid(True, alpha=0.3)
     axes[2].legend()
@@ -189,9 +206,9 @@ def plot_cache_misses_vs_msgsize():
 def plot_cycles_per_byte():
     """Plot 4: CPU Cycles per Byte Transferred."""
     # Calculate cycles per byte
-    cycles_per_byte_two = [cycles_two_copy[i] / bytes_transferred[i] for i in range(len(MSG_SIZES))]
-    cycles_per_byte_one = [cycles_one_copy[i] / bytes_transferred[i] for i in range(len(MSG_SIZES))]
-    cycles_per_byte_zero = [cycles_zero_copy[i] / bytes_transferred[i] for i in range(len(MSG_SIZES))]
+    cycles_per_byte_two = [cycles_two_copy[i] / bytes_two_copy[i] for i in range(len(MSG_SIZES))]
+    cycles_per_byte_one = [cycles_one_copy[i] / bytes_one_copy[i] for i in range(len(MSG_SIZES))]
+    cycles_per_byte_zero = [cycles_zero_copy[i] / bytes_zero_copy[i] for i in range(len(MSG_SIZES))]
     
     plt.figure()
     
@@ -227,19 +244,10 @@ def main():
     print("MT25048 - PA02 Plot Generator")
     print("="*60)
     print()
-    print("IMPORTANT: Ensure data arrays have been updated with actual")
-    print("           experimental values from CSV files!")
+    print("NOTE: All data is HARDCODED in this script as per assignment requirements.")
+    print("      Data was extracted from raw_csvs/combined_results.csv")
+    print("      Experiment date: 2026-02-07 (after client/server role fix)")
     print()
-    
-    # Check if using example data
-    if throughput_two_copy_by_msgsize[0] == 0.5:
-        print("WARNING: Still using example data!")
-        print("         Update hardcoded arrays before final submission.")
-        print()
-        response = input("Continue with example data? (y/n): ")
-        if response.lower() != 'y':
-            print("Aborted. Please update data arrays first.")
-            return 1
     
     setup_plot_style()
     

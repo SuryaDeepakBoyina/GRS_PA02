@@ -2,21 +2,16 @@
  * MT25048_Part_A1_Server.c - Two-Copy TCP Server (Baseline)
  * Roll Number: MT25048
  *
- * This server implements baseline TCP socket communication using send()/recv().
+ * This server RECEIVES data from clients using recv() (traditional two-copy).
  *
  * TWO-COPY EXPLANATION:
  * ---------------------
- * Copy 1: User space buffer → Kernel socket buffer (via send() syscall)
- * Copy 2: Kernel socket buffer → NIC hardware buffer (via DMA/network stack)
- *
- * Actually, there may be additional copies depending on implementation:
- * - sk_buff allocation and management
- * - Protocol stack processing
- * But the primary two copies are user→kernel and kernel→NIC.
+ * Copy 1: NIC hardware buffer → Kernel socket buffer (via DMA/network stack)
+ * Copy 2: Kernel socket buffer → User space buffer (via recv() syscall)
  *
  * Architecture:
  * - Main thread: Accepts connections
- * - Worker threads: One thread per client, continuously sends messages
+ * - Worker threads: One thread per client, continuously receives messages
  */
 
 #include "common.h"
@@ -26,7 +21,7 @@
 #define DEFAULT_MSGSIZE 1024
 #define DEFAULT_DURATION 10
 #define BACKLOG 100
-#define SEND_BUFFER_SIZE (256 * 1024) /* 256 KB */
+#define RECV_BUFFER_SIZE (256 * 1024) /* 256 KB */
 
 typedef struct {
   int client_fd;
@@ -38,8 +33,8 @@ typedef struct {
 /*
  * client_handler - Thread function to handle one client connection
  *
- * Continuously sends messages using send() (two-copy path) until duration
- * expires.
+ * Continuously receives messages using recv() (two-copy path) until duration
+ * expires or client disconnects.
  */
 void *client_handler(void *arg) {
   client_thread_args_t *args = (client_thread_args_t *)arg;
@@ -48,36 +43,15 @@ void *client_handler(void *arg) {
   int duration_sec = args->duration_sec;
   int thread_id = args->thread_id;
 
-  printf("[Thread %d] Client connected, starting transmission (msgsize=%zu, "
+  printf("[Thread %d] Client connected, ready to receive (msgsize=%zu, "
          "duration=%d)\n",
          thread_id, msg_size, duration_sec);
 
-  /* Allocate message with 8 heap-allocated fields */
-  message_t *msg = msg_alloc(msg_size / NUM_FIELDS);
-  if (!msg) {
-    fprintf(stderr, "[Thread %d] Failed to allocate message\n", thread_id);
-    close(client_fd);
-    free(args);
-    return NULL;
-  }
-
-  /* Allocate send buffer */
+  /* Allocate receive buffer */
   size_t buffer_size = sizeof(size_t) + msg_size;
-  char *send_buffer = (char *)malloc(buffer_size);
-  if (!send_buffer) {
-    perror("malloc send_buffer failed");
-    msg_free(msg);
-    close(client_fd);
-    free(args);
-    return NULL;
-  }
-
-  /* Serialize message once */
-  int serialized_size = msg_serialize(msg, send_buffer, buffer_size);
-  if (serialized_size < 0) {
-    fprintf(stderr, "[Thread %d] Serialization failed\n", thread_id);
-    free(send_buffer);
-    msg_free(msg);
+  char *recv_buffer = (char *)malloc(buffer_size);
+  if (!recv_buffer) {
+    perror("malloc recv_buffer failed");
     close(client_fd);
     free(args);
     return NULL;
@@ -90,36 +64,35 @@ void *client_handler(void *arg) {
   double start_time = get_timestamp_sec();
   double end_time = start_time + duration_sec;
 
-  /* Send loop */
+  /* Receive loop */
   while (get_timestamp_sec() < end_time && !shutdown_flag) {
-    double send_start = get_timestamp_us();
+    double recv_start = get_timestamp_us();
 
-    /* TWO-COPY SEND: Data copied from user buffer to kernel socket buffer */
-    ssize_t sent = send(client_fd, send_buffer, serialized_size, 0);
+    /* TWO-COPY RECV: Data copied from kernel socket buffer to user buffer */
+    ssize_t received = recv(client_fd, recv_buffer, buffer_size, 0);
 
-    double send_end = get_timestamp_us();
+    double recv_end = get_timestamp_us();
 
-    if (sent < 0) {
+    if (received < 0) {
       if (errno == EINTR || errno == EAGAIN)
         continue;
-      perror("send failed");
+      perror("recv failed");
       break;
     }
 
-    if (sent != serialized_size) {
-      fprintf(stderr, "[Thread %d] Partial send: %zd/%d\n", thread_id, sent,
-              serialized_size);
+    if (received == 0) {
+      /* Connection closed by client */
+      printf("[Thread %d] Client closed connection\n", thread_id);
       break;
     }
 
-    stats_update(&stats, serialized_size, send_end - send_start);
+    stats_update(&stats, received, recv_end - recv_start);
   }
 
-  stats_print(&stats, "Server Thread");
+  stats_print(&stats, "Server Thread (TWO-COPY)");
   stats_destroy(&stats);
 
-  free(send_buffer);
-  msg_free(msg);
+  free(recv_buffer);
   close(client_fd);
   free(args);
 
@@ -139,7 +112,7 @@ int main(int argc, char *argv[]) {
     duration = parse_int_arg(argv[i], "--duration=", duration);
   }
 
-  printf("=== MT25048 Part A1: Two-Copy Server ===\n");
+  printf("=== MT25048 Part A1: Two-Copy Server (Receiver) ===\n");
   printf("Port: %d\n", port);
   printf("Message Size: %zu bytes\n", msg_size);
   printf("Duration: %d seconds\n\n", duration);
@@ -158,9 +131,9 @@ int main(int argc, char *argv[]) {
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
-  /* Configure send buffer size */
-  int sendbuf = SEND_BUFFER_SIZE;
-  setsockopt(server_fd, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf));
+  /* Configure receive buffer size */
+  int recvbuf = RECV_BUFFER_SIZE;
+  setsockopt(server_fd, SOL_SOCKET, SO_RCVBUF, &recvbuf, sizeof(recvbuf));
 
   /* Bind to port */
   struct sockaddr_in server_addr;
