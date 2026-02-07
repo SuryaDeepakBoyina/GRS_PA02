@@ -29,7 +29,7 @@ This will generate 6 binaries:
 
 ### Automated (Recommended)
 ```bash
-./MT25048_Part_C_run.sh
+./MT25048_Part_C1_run.sh
 ```
 
 
