@@ -15,7 +15,6 @@ Each variant is profiled using `perf` to analyze CPU cycles, cache behavior, and
 ## Build Instructions
 
 ```bash
-cd MT25048_PA02
 make clean
 make
 ```
@@ -27,14 +26,14 @@ This will generate 6 binaries:
 
 ## Running Experiments
 
-### Automated (Recommended)
+
 ```bash
 sudo ./MT25048_Part_C1_run.sh
 ```
 
 
 
-### Manual Testing
+### Manual
 
 **Server (in one terminal):**
 ```bash
