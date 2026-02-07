@@ -29,29 +29,24 @@ This will generate 6 binaries:
 
 ### Automated (Recommended)
 ```bash
-./run_experiments.sh
+./MT25048_Part_C_run.sh
 ```
 
-This script:
-1. Compiles all binaries
-2. Sets up network namespaces
-3. Runs all combinations of message sizes (64, 256, 1024, 8192 bytes) and thread counts (1, 2, 4, 8)
-4. Collects `perf` metrics
-5. Outputs results to `raw_csvs/`
+
 
 ### Manual Testing
 
 **Server (in one terminal):**
 ```bash
-./a1_server --port 9000 --msgsize 1024 --duration 30
+./a1_server --port 9000 --msgsize 1024 --duration 5
 ```
 
 **Client (in another terminal):**
 ```bash
-./a1_client --host 127.0.0.1 --port 9000 --threads 4 --msgsize 1024 --duration 30
+./a1_client --host 127.0.0.1 --port 9000 --threads 4 --msgsize 1024 --duration 5
 ```
 
-Replace `a1_*` with `a2_*` or `a3_*` for other variants.
+
 
 ## Generating Plots
 
@@ -59,37 +54,28 @@ Replace `a1_*` with `a2_*` or `a3_*` for other variants.
 python3 MT25048_Part_D_plot_results.py
 ```
 
-**Note:** Values are hardcoded in the Python script as per assignment requirements.
+
 
 ## Project Structure
 
 ```
 MT25048_PA02/
-├── common.h                              # Message structure and utilities
-├── common.c                              # Implementation of common utilities
+├── MT25048_Part_A_common.h               # Message structure and utilities
+├── MT25048_Part_A_common.c               # Implementation of common utilities
 ├── MT25048_Part_A1_Server.c              # Two-copy server
 ├── MT25048_Part_A1_Client.c              # Two-copy client
 ├── MT25048_Part_A2_Server.c              # One-copy server
 ├── MT25048_Part_A2_Client.c              # One-copy client
 ├── MT25048_Part_A3_Server.c              # Zero-copy server
 ├── MT25048_Part_A3_Client.c              # Zero-copy client
-├── run_experiments.sh                    # Automated experiment runner
-├── parse_perf.py                         # Parses perf output to CSV
+├── MT25048_Part_C1_run.sh                 # Automated experiment runner
 ├── MT25048_Part_D_plot_results.py        # Generates plots from hardcoded data
 ├── Makefile                              # Build system
 ├── README.md                             # This file
-├── AI_prompts_used.txt                   # AI usage documentation
-├── raw_csvs/                             # Experimental results
-└── report/                               # Report and screenshots
+├── MT25048_Part_C2_CSV.csv               # CSV file for Part C2
 ```
 
-## System Requirements
 
-- Linux kernel 4.14+ (for MSG_ZEROCOPY support)
-- GCC with pthread support
-- Python 3.x with matplotlib
-- perf tool
-- Root/sudo access for network namespaces and perf
 
 ## Implementation Details
 
@@ -110,10 +96,4 @@ Uses `sendmsg()` with `MSG_ZEROCOPY` flag. Kernel pins user pages and DMA transf
 - **Cache Misses** (L1, LLC): Via `perf stat`
 - **Context Switches**: Via `perf stat`
 
-## References
 
-See `AI_prompts_used.txt` for detailed AI usage documentation.
-
-## GitHub Repository
-
-https://github.com/[username]/GRS_PA02

@@ -20,8 +20,8 @@ import sys
 
 # System configuration (update with your actual system specs)
 SYSTEM_CONFIG = """
-System: Linux kernel 5.15+
-CPU: Intel/AMD x64
+System: Fedora Linux 42 (KDE Plasma Desktop Edition)
+CPU: Intel x86
 RAM: 8GB
 Date: 2026-02-07
 """
@@ -198,7 +198,13 @@ def plot_cache_misses_vs_msgsize():
     axes[2].legend()
     
     plt.suptitle('Cache Misses vs Message Size (4 threads)')
-    plt.tight_layout()
+    
+    # Add system config annotation (centered at the bottom)
+    fig.text(0.5, 0.02, SYSTEM_CONFIG.strip().replace('\n', ' | '), 
+             ha='center', fontsize=9, 
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95]) # Adjust layout to make room for suptitle and config
     plt.savefig('MT25048_Plot_CacheMisses_vs_MsgSize.pdf')
     print("Saved: MT25048_Plot_CacheMisses_vs_MsgSize.pdf")
     plt.close()

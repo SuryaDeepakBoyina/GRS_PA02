@@ -13,7 +13,7 @@
  * Measures throughput (Gbps) and latency (µs) for performance analysis.
  */
 
-#include "common.h"
+#include "MT25048_Part_A_common.h"
 #include <netinet/tcp.h>
 
 #define DEFAULT_HOST "127.0.0.1"

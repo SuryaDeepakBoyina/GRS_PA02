@@ -13,7 +13,7 @@
  * for optimal performance.
  */
 
-#include "common.h"
+#include "MT25048_Part_A_common.h"
 #include <netinet/tcp.h>
 
 #define DEFAULT_PORT 9002 /* Different port from A1/A2 */

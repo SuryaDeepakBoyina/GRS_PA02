@@ -44,7 +44,7 @@
  * - Completion notification latency
  */
 
-#include "common.h"
+#include "MT25048_Part_A_common.h"
 #include <linux/errqueue.h>
 #include <netinet/tcp.h>
 #include <sys/uio.h>

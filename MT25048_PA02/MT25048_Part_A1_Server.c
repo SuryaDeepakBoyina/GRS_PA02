@@ -14,7 +14,7 @@
  * - Worker threads: One thread per client, continuously receives messages
  */
 
-#include "common.h"
+#include "MT25048_Part_A_common.h"
 #include <netinet/tcp.h>
 
 #define DEFAULT_PORT 9000
